@@ -34,7 +34,6 @@ export const ensureRegistryRuntime = async (
 
   const reusableRuntime = await findReusableRegistryRuntime(
     currentState.runtime,
-    preferredPort,
   );
   if (reusableRuntime) {
     writeGlobalRegistryState({
@@ -179,64 +178,30 @@ export const isPortFree = (port: number) =>
   });
 
 /**
- * Reuse a healthy registry runtime before spawning a new Verdaccio process.
+ * Reuse only the registry instance already tracked by nalc state.
+ *
+ * We intentionally do not adopt arbitrary healthy registries discovered on
+ * nearby ports. nalc should manage exactly one Verdaccio runtime per home dir,
+ * and any custom `--port` value only affects the next spawn when no healthy
+ * runtime is currently recorded.
  */
 const findReusableRegistryRuntime = async (
   existingRuntime: RegistryRuntimeState | undefined,
-  preferredPort: number,
 ): Promise<RegistryRuntimeState | undefined> => {
-  for (const candidate of getReusablePortCandidates(
-    preferredPort,
-    existingRuntime?.port,
-  )) {
-    const probe = await probeRegistryPort(candidate);
-    if (!probe.healthy) {
-      continue;
-    }
-
-    return {
-      pid:
-        existingRuntime && existingRuntime.port === candidate
-          ? existingRuntime.pid
-          : 0,
-      port: candidate,
-      url: `http://${HOST}:${candidate}`,
-      configPath: getRegistryConfigPath(),
-      storagePath: getRegistryStoragePath(),
-      startedAt:
-        existingRuntime && existingRuntime.port === candidate
-          ? existingRuntime.startedAt
-          : new Date().toISOString(),
-    };
+  if (!existingRuntime) {
+    return undefined;
   }
 
-  return undefined;
-};
-
-/**
- * Build the list of ports that may already host a reusable local registry.
- */
-const getReusablePortCandidates = (
-  preferredPort: number,
-  existingPort?: number,
-) => {
-  const candidates = new Set<number>();
-
-  if (existingPort) {
-    candidates.add(existingPort);
+  const probe = await probeRegistryPort(existingRuntime.port);
+  if (!probe.healthy) {
+    return undefined;
   }
 
-  for (let offset = 0; offset < PORT_SCAN_LIMIT; offset += 1) {
-    candidates.add(preferredPort + offset);
-  }
-
-  if (preferredPort !== DEFAULT_PORT) {
-    for (let offset = 0; offset < PORT_SCAN_LIMIT; offset += 1) {
-      candidates.add(DEFAULT_PORT + offset);
-    }
-  }
-
-  return Array.from(candidates);
+  return {
+    ...existingRuntime,
+    configPath: getRegistryConfigPath(),
+    storagePath: getRegistryStoragePath(),
+  };
 };
 
 /**

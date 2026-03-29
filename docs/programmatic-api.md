@@ -182,8 +182,8 @@ declare function ensureRegistryRuntime(
 行为特征：
 
 - 优先复用 state 中已知且健康的 runtime
-- 如果目标端口已有健康 registry，则直接复用
-- 如果端口被占用但不是 registry，则自动寻找下一个可用端口
+- 同一个 nalc home 只维护一份 Verdaccio runtime，不主动接管外部 registry
+- `port` 只影响当前没有健康 runtime 时的启动端口；若被占用，会自动向后扫描
 
 示例：
 

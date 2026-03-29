@@ -270,13 +270,14 @@ node_modules/.pnpm/
 
 1. 读取全局 state 中记录的 runtime
 2. 优先检查该 runtime 是否仍然健康
-3. 如果指定端口已有健康 registry，也直接复用
-4. 如果目标端口被别的服务占用，就继续往后扫描空闲端口
+3. 如果健康，则直接复用，不接管其他端口上的 registry
+4. 如果当前没有健康 runtime，则从期望端口开始向后扫描空闲端口
 5. 找到可用端口后再启动新的 Verdaccio 进程
 
 这保证了：
 
-- 不会重复起多个本地 registry
+- 同一个 nalc home 只维护一份 Verdaccio runtime
+- 不会误复用或接管外部 registry
 - 端口冲突时行为类似 Vite
 - 多次执行 `nalc serve`、`nalc publish`、`nalc add` 可以共享同一个 runtime
 

@@ -139,8 +139,9 @@ nalc serve --port 4874
 Behavior:
 
 - reuses the healthy runtime recorded in `~/.nalc/registry/state.json`
-- if the preferred port already hosts a healthy local registry, it reuses that instance
-- if the preferred port is occupied by something else, it scans for the next free port
+- nalc keeps a single Verdaccio runtime per nalc home directory
+- `--port` only affects the next spawn when no healthy runtime is currently recorded
+- if the chosen port is occupied, nalc scans upward for the next free port, similar to Vite
 
 ### `nalc publish [path]`
 

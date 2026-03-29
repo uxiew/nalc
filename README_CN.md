@@ -135,8 +135,9 @@ nalc serve --port 4874
 行为：
 
 - 优先复用 `~/.nalc/registry/state.json` 中记录且健康的 runtime
-- 如果目标端口已有健康的本地 registry，就直接复用
-- 如果目标端口被别的进程占用，就继续向后扫描可用端口
+- 对同一个 nalc home，只维护一份 Verdaccio runtime
+- `--port` 只影响“当前没有健康 runtime 时”的下一次启动端口
+- 如果目标端口被别的进程占用，就继续向后扫描可用端口，行为类似 Vite
 
 ### `nalc publish [path]`
 
