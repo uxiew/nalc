@@ -83,11 +83,11 @@ Why:
 ## Installation
 
 ```bash
-npm i -g nalc
+npm i -g @xwai/nalc
 # or
-pnpm add -g nalc
+pnpm add -g @xwai/nalc
 # or
-bun add -g nalc
+bun add -g @xwai/nalc
 ```
 
 ## Typical Workflows

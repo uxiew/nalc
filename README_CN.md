@@ -79,11 +79,11 @@
 ## 安装
 
 ```bash
-npm i -g nalc
+npm i -g @xwai/nalc
 # 或
-pnpm add -g nalc
+pnpm add -g @xwai/nalc
 # 或
-bun add -g nalc
+bun add -g @xwai/nalc
 ```
 
 ## 常见工作流

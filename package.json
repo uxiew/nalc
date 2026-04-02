@@ -1,5 +1,5 @@
 {
-  "name": "nalc",
+  "name": "@xwai/nalc",
   "version": "0.0.1",
   "description": "Registry-first local package development through an embedded Verdaccio proxy.",
   "homepage": "https://github.com/uxiew/nalc",
