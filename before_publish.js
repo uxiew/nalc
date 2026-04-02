@@ -10,7 +10,7 @@ const __dirname = dirname(__filename);
 const require = createRequire(import.meta.url);
 
 const [res] = await replace({
-  path: "./lib/constant.js",
+  path: "./dist/constant.js",
   request: [
     {
       regex: /__VERSION__/g,
@@ -21,7 +21,7 @@ const [res] = await replace({
 
 if (res.isChanged) {
   console.log(
-    pc.green("\n+ Version updated, replaced __VERSION__ in lib/constant.js"),
+    pc.green("\n+ Version updated, replaced __VERSION__ in dist/constant.js"),
   );
 } else {
   throw new Error("Error: Version not updated!");

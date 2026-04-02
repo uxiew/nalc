@@ -9,15 +9,15 @@
   },
   "type": "module",
   "bin": {
-    "nalc": "lib/nalc.js"
+    "nalc": "dist/nalc.js"
   },
-  "main": "lib/index.js",
+  "main": "dist/index.js",
   "files": [
-    "lib"
+    "dist"
   ],
   "scripts": {
-    "build": "pnpm clean && tsc && ts-add-js-extension --dir=lib && node before_publish.js",
-    "clean": "ts-clean-built --all --out lib && trash  **/*.log",
+    "build": "pnpm clean && tsc && ts-add-js-extension --dir=dist && node before_publish.js",
+    "clean": "ts-clean-built --all --out dist && trash  **/*.log",
     "prepublishOnly": "pnpm clean && pnpm build && pnpm test",
     "test": "vitest run",
     "test-dev": "vitest",

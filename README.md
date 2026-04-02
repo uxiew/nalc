@@ -367,7 +367,7 @@ Use `--dir <path>` to override the default nalc home directory.
 
 ## Programmatic API
 
-`nalc` also exposes a small programmable surface from `lib/index.js`.
+`nalc` also exposes a small programmable surface from `dist/index.js`.
 
 ```ts
 import {

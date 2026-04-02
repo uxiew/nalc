@@ -366,7 +366,7 @@ files = .DS_Store, *.log
 
 ## 可编程 API
 
-`nalc` 同时对外导出了一组可编程 API，可从 `lib/index.js` 直接导入：
+`nalc` 同时对外导出了一组可编程 API，可从 `dist/index.js` 直接导入：
 
 ```ts
 import {

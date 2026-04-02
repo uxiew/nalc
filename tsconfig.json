@@ -1,9 +1,7 @@
 {
   "compilerOptions": {
     "target": "es5",
-    "lib": [
-      "es2015"
-    ],
+    "lib": ["es2015"],
     "module": "esnext",
     "moduleResolution": "bundler",
     "declaration": true,
@@ -17,13 +15,11 @@
     "allowJs": false,
     "newLine": "LF",
     "skipLibCheck": true,
-    "outDir": "lib"
+    "outDir": "dist",
   },
-  "include": [
-    "src"
-  ],
+  "include": ["src"],
   "formatCodeOptions": {
     "indentSize": 2,
-    "tabSize": 2
-  }
+    "tabSize": 2,
+  },
 }

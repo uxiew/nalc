@@ -1,6 +1,6 @@
 # nalc 可编程 API
 
-本文档梳理 `nalc` 当前从 `lib/index.js` 暴露出来的可编程 API，包括用途、参数字段和典型调用方式。
+本文档梳理 `nalc` 当前从 `dist/index.js` 暴露出来的可编程 API，包括用途、参数字段和典型调用方式。
 
 当前 `src/index.ts` 暴露的模块有：
 
