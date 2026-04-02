@@ -1,6 +1,6 @@
 {
   "name": "nalc",
-  "version": "0.0.1-beta.1",
+  "version": "0.0.1",
   "description": "Registry-first local package development through an embedded Verdaccio proxy.",
   "homepage": "https://github.com/uxiew/nalc",
   "repository": {
