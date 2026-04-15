@@ -7,6 +7,7 @@ import { type PublishPackageOptions, publishPackage } from "./publish";
 import { VALUES, nalcGlobal } from "./constant";
 import { getStoreMainDir } from "./utils";
 import { ensureRegistryRuntime, stopRegistryRuntime } from "./registry/runtime";
+import { destroyNalcStore } from "./registry/state";
 import {
   addRegistryPackages,
   passRegistryConsumer,
@@ -257,6 +258,41 @@ yargs(process.argv.slice(2))
     builder: (y) => y.default(rcArgs).help(true),
     handler: async () => {
       await passRegistryConsumer(process.cwd());
+    },
+  })
+  .command({
+    command: "destroy",
+    describe:
+      "Pass the current project, stop Verdaccio, and delete the whole nalc system store",
+    builder: (y) =>
+      y
+        .option("force", {
+          describe: "Use SIGKILL if graceful shutdown times out",
+          type: "boolean",
+          default: true,
+        })
+        .default(rcArgs)
+        .help(true),
+    handler: async (argv) => {
+      await passRegistryConsumer(process.cwd());
+      const result = await stopRegistryRuntime({
+        force: argv.force !== false,
+      });
+      destroyNalcStore();
+
+      if (result.stopped && result.runtime) {
+        console.log(
+          `Local registry stopped at ${result.runtime.url} (pid ${result.runtime.pid})`,
+        );
+      } else if (result.stale && result.runtime) {
+        console.log(
+          `Cleared stale local registry state for ${result.runtime.url} (pid ${result.runtime.pid})`,
+        );
+      } else {
+        console.log("Local registry is not running.");
+      }
+
+      console.log(`Removed nalc system store at ${getStoreMainDir()}`);
     },
   })
   .command({
