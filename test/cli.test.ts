@@ -91,6 +91,7 @@ describe('nalc CLI', () => {
       updateRegistryPackages: vi.fn(),
     }));
     vi.doMock('../src/registry/state', () => ({
+      describeNalcState: vi.fn(),
       destroyNalcStore,
     }));
 
@@ -108,6 +109,46 @@ describe('nalc CLI', () => {
     );
     expect(logSpy).toHaveBeenCalledWith(
       expect.stringContaining('Removed nalc system store at '),
+    );
+  });
+
+  it('routes the state command to the state reporter', async () => {
+    const describeNalcState = vi.fn().mockReturnValue(
+      'Current project state\n- nalc: managing this project',
+    );
+
+    vi.doMock('../src/console', () => ({
+      makeConsoleColored: vi.fn(),
+      disabledConsoleOutput: vi.fn(),
+    }));
+    vi.doMock('../src/rc', () => ({
+      readRcConfig: () => ({}),
+    }));
+    vi.doMock('../src/registry/runtime', () => ({
+      ensureRegistryRuntime: vi.fn(),
+      stopRegistryRuntime: vi.fn(),
+    }));
+    vi.doMock('../src/registry/state', () => ({
+      describeNalcState,
+      destroyNalcStore: vi.fn(),
+    }));
+    vi.doMock('../src/registry/consumer', () => ({
+      addRegistryPackages: vi.fn(),
+      passRegistryConsumer: vi.fn(),
+      pushRegistryPackages: vi.fn(),
+      removeRegistryPackages: vi.fn(),
+      updateRegistryPackages: vi.fn(),
+    }));
+
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    process.argv = ['node', 'nalc', 'state'];
+
+    await import('../src/nalc');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(describeNalcState).toHaveBeenCalledWith(process.cwd());
+    expect(logSpy).toHaveBeenCalledWith(
+      'Current project state\n- nalc: managing this project',
     );
   });
 });

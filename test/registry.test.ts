@@ -10,6 +10,7 @@ import {
   getRegistryHomeDir,
 } from "../src/registry/constants";
 import {
+  describeNalcState,
   readConsumerRegistryState,
   readGlobalRegistryState,
   writeConsumerRegistryState,
@@ -149,5 +150,80 @@ describe("Registry mode helpers", () => {
     ok(fs.existsSync(getConsumerRegistryStatePath(consumerDir)));
     ok(!fs.existsSync(legacyPath));
     ok(!fs.existsSync(join(consumerDir, ".nalc")));
+  });
+
+  it("prefers current project details when the project is managed by nalc", () => {
+    fs.writeJSONSync(
+      join(consumerDir, "package.json"),
+      { name: "demo-app", version: "1.0.0" },
+      { spaces: 2 },
+    );
+    writeConsumerRegistryState(consumerDir, {
+      version: 1,
+      packageManager: "pnpm",
+      packages: {
+        demo: {
+          dependencyType: "dependencies",
+          originalSpec: "^1.0.0",
+          localSpec: "1.0.0-nalc.20260323.deadbeef",
+          manifestSpec: "1.0.0-nalc.20260323.deadbeef",
+          sourcePath: "/tmp/demo",
+          registryUrl: "http://127.0.0.1:4873",
+          installedAt: "2026-03-23T08:00:00.000Z",
+        },
+      },
+    });
+
+    const report = describeNalcState(consumerDir);
+
+    ok(report.includes("Current project state"));
+    ok(report.includes("- package: demo-app@1.0.0"));
+    ok(report.includes("- nalc: managing this project"));
+    ok(report.includes("- tracked packages: 1"));
+    ok(report.includes("demo -> 1.0.0-nalc.20260323.deadbeef [dependencies]"));
+    ok(!report.includes("System nalc state"));
+  });
+
+  it("falls back to the system summary when the current directory is not a package project", () => {
+    const randomDir = join(tmpDir, "random-dir");
+    fs.ensureDirSync(randomDir);
+    writeGlobalRegistryState({
+      version: 1,
+      runtime: {
+        pid: 123,
+        port: 4873,
+        url: "http://127.0.0.1:4873",
+        configPath: "/tmp/config.yaml",
+        storagePath: "/tmp/storage",
+        startedAt: "2026-03-23T08:00:00.000Z",
+      },
+      packages: {
+        demo: {
+          sourcePath: "/tmp/demo",
+          baseVersion: "1.0.0",
+          localVersion: "1.0.0-nalc.20260323.deadbeef",
+          distTag: "nalc",
+          publishedAt: "2026-03-23T08:00:00.000Z",
+          buildId: "deadbeef",
+          contentHash: "sha",
+        },
+      },
+      consumers: {
+        demo: [consumerDir],
+      },
+    });
+
+    const report = describeNalcState(randomDir);
+
+    ok(
+      report.includes(
+        "Current directory is not a package project, showing nalc system state.",
+      ),
+    );
+    ok(report.includes("System nalc state"));
+    ok(report.includes("- published packages: 1"));
+    ok(report.includes("demo -> 1.0.0-nalc.20260323.deadbeef"));
+    ok(report.includes(`- tracked consumer projects: 1`));
+    ok(report.includes(`${consumerDir} (demo)`));
   });
 });

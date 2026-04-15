@@ -7,7 +7,7 @@ import { type PublishPackageOptions, publishPackage } from "./publish";
 import { VALUES, nalcGlobal } from "./constant";
 import { getStoreMainDir } from "./utils";
 import { ensureRegistryRuntime, stopRegistryRuntime } from "./registry/runtime";
-import { destroyNalcStore } from "./registry/state";
+import { describeNalcState, destroyNalcStore } from "./registry/state";
 import {
   addRegistryPackages,
   passRegistryConsumer,
@@ -293,6 +293,16 @@ yargs(process.argv.slice(2))
       }
 
       console.log(`Removed nalc system store at ${getStoreMainDir()}`);
+    },
+  })
+  .command({
+    command: "state [path]",
+    describe:
+      "Show the current project nalc state first, or fall back to the system state summary",
+    builder: (y) => y.default(rcArgs).help(true),
+    handler: async (argv) => {
+      const workingDir = resolve(process.cwd(), String(argv.path || ""));
+      console.log(describeNalcState(workingDir));
     },
   })
   .command({
