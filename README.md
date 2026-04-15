@@ -35,7 +35,7 @@ Key behaviors:
 - rewrites the package version to a local prerelease such as `1.2.3-nalc.20260328.deadbeef`
 - resolves local `workspace:` and `catalog:` references before publishing
 - optionally strips development-only manifest fields
-- records publish metadata in `~/.nalc/registry/state.json`
+- records publish metadata in `~/.nalc/state.json`
 
 ### 2. Consumer Side
 
@@ -43,7 +43,7 @@ When you run `nalc add` or `nalc update`, `nalc` updates the consumer manifest a
 
 Key behaviors:
 
-- persists tracked state in `.nalc/state.json`
+- persists tracked state in `~/.nalc/projects/<project>__<pathHash>/state.json`
 - remembers the consumer package manager so future installs can fall back to the same tool when lockfiles are temporarily absent
 - saved entries are written to `package.json` as exact local versions such as `1.2.3-nalc.20260328.deadbeef`
 - the lockfile still records the exact resolved version
@@ -138,7 +138,7 @@ nalc serve --port 4874
 
 Behavior:
 
-- reuses the healthy runtime recorded in `~/.nalc/registry/state.json`
+- reuses the healthy runtime recorded in `~/.nalc/state.json`
 - nalc keeps a single Verdaccio runtime per nalc home directory
 - `--port` only affects the next spawn when no healthy runtime is currently recorded
 - if the chosen port is occupied, nalc scans upward for the next free port, similar to Vite
@@ -210,7 +210,7 @@ Important options:
 
 Behavior:
 
-- records the original dependency spec in `.nalc/state.json`
+- records the original dependency spec in `~/.nalc/projects/<project>__<pathHash>/state.json`
 - persists the exact `<localVersion>` to `package.json` while the project is under nalc management
 - the actual install is performed by `npm`, `pnpm`, or `bun`
 
@@ -247,7 +247,7 @@ Behavior:
 
 ### `nalc pass`
 
-Restore the current project to normal dependency specs and remove nalc state files.
+Restore the current project to normal dependency specs and remove its nalc-managed project state.
 
 ```bash
 nalc pass
@@ -257,8 +257,40 @@ Behavior:
 
 - restores every tracked package back to its original dependency range
 - reinstalls the consumer with the recorded package manager
-- removes `.nalc/state.json` and drops the empty `.nalc` directory
+- removes the current project's system state entry under `~/.nalc/projects/`
 - removes stale nalc-owned `.pnpm` package instances
+
+### `nalc destroy`
+
+Pass the current project first, then stop Verdaccio and wipe the whole nalc system store.
+
+```bash
+nalc destroy
+nalc destroy --force=false
+```
+
+Behavior:
+
+- runs the same restore flow as `nalc pass` for the current project
+- stops the managed Verdaccio runtime if one is recorded
+- removes the whole nalc home directory such as `~/.nalc`
+- deletes registry runtime metadata, Verdaccio storage, published package metadata, and every saved project state
+
+### `nalc state [path]`
+
+Show the current project state first, or fall back to a friendly nalc system summary.
+
+```bash
+nalc state
+nalc state ../consumer
+```
+
+Behavior:
+
+- if the target directory is a nalc-managed project, prints that project's tracked package details first
+- if the target directory is a normal package project but not currently managed by nalc, prints that fact and then shows the system summary
+- if the target directory is not a package project, directly shows the nalc system summary
+- the system summary includes the nalc home dir, global state file, registry status, published packages, tracked consumers, and saved project state files
 
 ### `nalc ws [path]`
 
@@ -309,7 +341,7 @@ Print the nalc home directory.
 Stored at:
 
 ```txt
-~/.nalc/registry/state.json
+~/.nalc/state.json
 ```
 
 Tracks:
@@ -323,7 +355,7 @@ Tracks:
 Stored at:
 
 ```txt
-<consumer>/.nalc/state.json
+~/.nalc/projects/<project>__<pathHash>/state.json
 ```
 
 Tracks:

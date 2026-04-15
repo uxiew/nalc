@@ -31,7 +31,7 @@
 - 将包版本改写成 `1.2.3-nalc.20260328.deadbeef` 这类本地预发布版本
 - 在发布前解析 `workspace:` 与 `catalog:` 依赖
 - 可选清理开发期字段
-- 将发布结果写入 `~/.nalc/registry/state.json`
+- 将发布结果写入 `~/.nalc/state.json`
 
 ### 2. 消费侧
 
@@ -39,7 +39,7 @@
 
 核心行为：
 
-- 将联调状态写入 `.nalc/state.json`
+- 将联调状态写入 `~/.nalc/projects/<project>__<pathHash>/state.json`
 - 记录 consumer 使用的包管理器，在 lockfile 暂时缺失时优先回退到上一次使用的工具
 - 对保存型依赖，把 `package.json` 直接写成精确的 `<localVersion>`
 - lockfile 仍然记录本次解析出来的精确版本
@@ -74,7 +74,7 @@
 
 - `package.json` 不会在安装时重新漂移回远程正式版
 - lockfile 记录的就是 nalc 期望安装的精确本地版本
-- `.nalc/state.json` 里的 `localSpec` 记录当前真实安装版本，供后续更新和清理旧实例使用
+- `~/.nalc/projects/<project>__<pathHash>/state.json` 里的 `localSpec` 记录当前真实安装版本，供后续更新和清理旧实例使用
 
 ## 安装
 
@@ -134,7 +134,7 @@ nalc serve --port 4874
 
 行为：
 
-- 优先复用 `~/.nalc/registry/state.json` 中记录且健康的 runtime
+- 优先复用 `~/.nalc/state.json` 中记录且健康的 runtime
 - 对同一个 nalc home，只维护一份 Verdaccio runtime
 - `--port` 只影响“当前没有健康 runtime 时”的下一次启动端口
 - 如果目标端口被别的进程占用，就继续向后扫描可用端口，行为类似 Vite
@@ -209,7 +209,7 @@ nalc add my-package -D
 
 行为：
 
-- 把原始依赖范围记录到 `.nalc/state.json`
+- 把原始依赖范围记录到 `~/.nalc/projects/<project>__<pathHash>/state.json`
 - 在 nalc 接管期间，把 `package.json` 直接写成精确的 `<localVersion>`
 - 实际安装由 `npm`、`pnpm` 或 `bun` 完成
 
@@ -246,7 +246,7 @@ nalc remove --all
 
 ### `nalc pass`
 
-将当前项目恢复为正常依赖状态，并清理 nalc 状态文件。
+将当前项目恢复为正常依赖状态，并清理当前项目对应的 nalc 状态。
 
 ```bash
 nalc pass
@@ -256,8 +256,40 @@ nalc pass
 
 - 将所有 tracked 包恢复回原始依赖范围
 - 使用记录下来的包管理器重新安装 consumer
-- 删除 `.nalc/state.json`，并在目录为空时移除整个 `.nalc`
+- 删除当前项目在 `~/.nalc/projects/` 下对应的 state 文件
 - 清理旧的 nalc 本地 `.pnpm` 实例
+
+### `nalc destroy`
+
+先对当前项目执行 `pass`，然后停止 Verdaccio，并清空整个 nalc 系统目录。
+
+```bash
+nalc destroy
+nalc destroy --force=false
+```
+
+行为：
+
+- 先执行与 `nalc pass` 相同的当前项目恢复流程
+- 如果记录了 Verdaccio runtime，则先停止它
+- 删除整个 nalc home，例如 `~/.nalc`
+- 同时清理 registry runtime 元信息、Verdaccio 存储、已发布包元信息，以及所有项目状态
+
+### `nalc state [path]`
+
+优先展示当前项目状态；如果不是 nalc 管理项目，就友好回退到系统状态摘要。
+
+```bash
+nalc state
+nalc state ../consumer
+```
+
+行为：
+
+- 如果目标目录正被 nalc 管理，优先打印该项目的 tracked 包详情
+- 如果目标目录是普通 package 项目但当前未被 nalc 管理，会先说明这一点，再展示系统摘要
+- 如果目标目录本身不是 package 项目，则直接展示 nalc 系统摘要
+- 系统摘要会包含 nalc home、全局 state 文件、registry 状态、已发布包、tracked consumer，以及已保存的项目 state 文件
 
 ### `nalc ws [path]`
 
@@ -308,7 +340,7 @@ nalc refresh ../consumer
 路径：
 
 ```txt
-~/.nalc/registry/state.json
+~/.nalc/state.json
 ```
 
 记录内容：
@@ -322,7 +354,7 @@ nalc refresh ../consumer
 路径：
 
 ```txt
-<consumer>/.nalc/state.json
+~/.nalc/projects/<project>__<pathHash>/state.json
 ```
 
 记录内容：
