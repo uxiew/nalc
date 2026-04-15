@@ -1,11 +1,14 @@
 import fs from "fs-extra";
 import { dirname, join } from "node:path";
 import {
+  getConsumerRegistryStateDir,
   getConsumerRegistryStatePath,
   getGlobalRegistryStatePath,
+  getLegacyConsumerRegistryStatePath,
 } from "./constants";
 import type { ConsumerRegistryState, GlobalRegistryState } from "./types";
 import { VALUES } from "../constant";
+import { getStoreMainDir } from "../utils";
 
 const createEmptyGlobalState = (): GlobalRegistryState => ({
   version: 1,
@@ -84,13 +87,11 @@ export const writeGlobalRegistryState = (state: GlobalRegistryState) => {
 export const readConsumerRegistryState = (
   workingDir: string,
 ): ConsumerRegistryState => {
-  const filePath = getConsumerRegistryStatePath(workingDir);
-  try {
-    const state = fs.readJSONSync(filePath) as ConsumerRegistryState;
-    return state.version === 1 ? state : createEmptyConsumerState();
-  } catch {
-    return createEmptyConsumerState();
-  }
+  return (
+    readConsumerRegistryStateFile(getConsumerRegistryStatePath(workingDir)) ||
+    readConsumerRegistryStateFile(getLegacyConsumerRegistryStatePath(workingDir)) ||
+    createEmptyConsumerState()
+  );
 };
 
 /**
@@ -103,17 +104,44 @@ export const writeConsumerRegistryState = (
   const filePath = getConsumerRegistryStatePath(workingDir);
   fs.ensureDirSync(dirname(filePath));
   fs.writeJSONSync(filePath, state, { spaces: 2 });
+  removeLegacyConsumerRegistryState(workingDir);
 };
 
 /**
  * Remove the consumer-local nalc state and drop the directory when it becomes empty.
  */
 export const removeConsumerRegistryState = (workingDir: string) => {
-  const filePath = getConsumerRegistryStatePath(workingDir);
+  fs.removeSync(getConsumerRegistryStatePath(workingDir));
+  removeDirIfEmpty(getConsumerRegistryStateDir(workingDir));
+  removeLegacyConsumerRegistryState(workingDir);
+};
+
+/**
+ * Remove the whole nalc system store.
+ */
+export const destroyNalcStore = () => {
+  fs.removeSync(getStoreMainDir());
+};
+
+const readConsumerRegistryStateFile = (filePath: string) => {
+  try {
+    const state = fs.readJSONSync(filePath) as ConsumerRegistryState;
+    return state.version === 1 ? state : createEmptyConsumerState();
+  } catch {
+    return undefined;
+  }
+};
+
+const removeLegacyConsumerRegistryState = (workingDir: string) => {
+  const filePath = getLegacyConsumerRegistryStatePath(workingDir);
   fs.removeSync(filePath);
 
   const stateDir = join(workingDir, VALUES.nalcStateFolder);
-  if (fs.existsSync(stateDir) && fs.readdirSync(stateDir).length === 0) {
-    fs.removeSync(stateDir);
+  removeDirIfEmpty(stateDir);
+};
+
+const removeDirIfEmpty = (dirPath: string) => {
+  if (fs.existsSync(dirPath) && fs.readdirSync(dirPath).length === 0) {
+    fs.removeSync(dirPath);
   }
 };

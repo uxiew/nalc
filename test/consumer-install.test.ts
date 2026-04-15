@@ -3,6 +3,7 @@ import { strictEqual, ok } from 'assert';
 import { join } from 'path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { nalcGlobal } from '../src/constant';
+import { getConsumerRegistryStatePath } from '../src/registry/constants';
 
 const tmpDir = join(__dirname, 'consumer-install-tmp');
 const consumerDir = join(tmpDir, 'consumer');
@@ -285,6 +286,8 @@ describe('Registry consumer installs', () => {
       consumerState.packages['@cmshiki/editor'].originalSpec,
       '^0.2.0',
     );
+    ok(fs.existsSync(getConsumerRegistryStatePath(consumerDir)));
+    ok(!fs.existsSync(join(consumerDir, '.nalc', 'state.json')));
 
     ok(
       fs.existsSync(
@@ -374,6 +377,7 @@ describe('Registry consumer installs', () => {
     strictEqual(manifest.dependencies['@cmshiki/shiki'], '^0.2.0');
     strictEqual(manifest.dependencies['@cmshiki/utils'], '^0.2.0');
 
+    ok(!fs.existsSync(getConsumerRegistryStatePath(consumerDir)));
     ok(!fs.existsSync(join(consumerDir, '.nalc', 'state.json')));
     ok(!fs.existsSync(join(consumerDir, '.nalc')));
 

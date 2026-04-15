@@ -4,6 +4,12 @@ import { join } from "path";
 import { afterEach, beforeEach, describe, it } from "vitest";
 import { nalcGlobal } from "../src/constant";
 import {
+  getConsumerRegistryStatePath,
+  getGlobalRegistryStatePath,
+  getLegacyConsumerRegistryStatePath,
+  getRegistryHomeDir,
+} from "../src/registry/constants";
+import {
   readConsumerRegistryState,
   readGlobalRegistryState,
   writeConsumerRegistryState,
@@ -75,6 +81,8 @@ describe("Registry mode helpers", () => {
       state.packages.demo.localVersion,
       "1.0.0-nalc.20260323.deadbeef",
     );
+    strictEqual(getGlobalRegistryStatePath(), join(globalDir, "state.json"));
+    strictEqual(getRegistryHomeDir(), join(globalDir, "registry"));
   });
 
   it("persists consumer registry state", () => {
@@ -109,5 +117,37 @@ describe("Registry mode helpers", () => {
         },
       },
     });
+    ok(fs.existsSync(getConsumerRegistryStatePath(consumerDir)));
+    ok(!getConsumerRegistryStatePath(consumerDir).startsWith(consumerDir));
+  });
+
+  it("reads legacy in-project consumer state and migrates writes to the system store", () => {
+    const legacyPath = getLegacyConsumerRegistryStatePath(consumerDir);
+    fs.ensureDirSync(join(consumerDir, ".nalc"));
+    fs.writeJSONSync(legacyPath, {
+      version: 1,
+      packageManager: "pnpm",
+      packages: {
+        demo: {
+          dependencyType: "dependencies",
+          originalSpec: "^1.0.0",
+          localSpec: "1.0.0-nalc.20260323.deadbeef",
+          manifestSpec: "1.0.0-nalc.20260323.deadbeef",
+          sourcePath: "/tmp/demo",
+          registryUrl: "http://127.0.0.1:4873",
+          installedAt: "2026-03-23T08:00:00.000Z",
+        },
+      },
+    });
+
+    const state = readConsumerRegistryState(consumerDir);
+    strictEqual(state.packageManager, "pnpm");
+    strictEqual(state.packages.demo.localSpec, "1.0.0-nalc.20260323.deadbeef");
+
+    writeConsumerRegistryState(consumerDir, state);
+
+    ok(fs.existsSync(getConsumerRegistryStatePath(consumerDir)));
+    ok(!fs.existsSync(legacyPath));
+    ok(!fs.existsSync(join(consumerDir, ".nalc")));
   });
 });
