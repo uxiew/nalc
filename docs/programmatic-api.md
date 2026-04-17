@@ -276,13 +276,14 @@ console.log(result.touchedFile)
 declare function updateRegistryPackages(
   packageNames: string[],
   options: RegistryConsumerOptions,
-): Promise<void>
+): Promise<RegistryUpdateResult>
 ```
 
 作用：
 
 - 把 tracked 包更新到最新本地版本
 - 对应 CLI 的 `nalc update`
+- 会返回本次更新的项目、包列表与 registry 地址摘要
 
 说明：
 
@@ -356,18 +357,21 @@ await passRegistryConsumer('/path/to/app')
 签名：
 
 ```ts
-declare function pushRegistryPackages(packageNames: string[]): Promise<void>
+declare function pushRegistryPackages(
+  packageNames: string[],
+): Promise<RegistryPushResult>
 ```
 
 作用：
 
 - 遍历全局 state 中该包的 tracked consumers
-- 对每个 consumer 执行一次 update
+- 按 consumer 聚合后执行 update，避免同一个项目重复安装
 - 对应 CLI 的 `nalc push` 在 consumer 侧的更新部分
 
 说明：
 
 - `packageNames` 传空数组时，会按全局 tracked consumer 表中的所有包执行
+- 会返回命中的包列表与每个 consumer 的更新摘要
 
 示例：
 

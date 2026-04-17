@@ -160,6 +160,9 @@ export const describeNalcState = (workingDir: string) => {
       if (consumerState.packageManager) {
         lines.push(`- package manager: ${consumerState.packageManager}`);
       }
+      lines.push(
+        `- registry address: ${getProjectRegistryAddress(consumerState) || "not recorded"}`,
+      );
       lines.push(`- tracked packages: ${trackedPackages.length}`);
       trackedPackages.forEach(([packageName, entry]) => {
         lines.push(
@@ -191,6 +194,9 @@ export const describeNalcState = (workingDir: string) => {
     globalState.runtime
       ? `- registry runtime: ${describeRuntime(globalState.runtime)}`
       : "- registry runtime: not recorded",
+  );
+  lines.push(
+    `- registry address: ${globalState.runtime?.url || "not recorded"}`,
   );
 
   const publishedPackages = Object.entries(globalState.packages).sort(
@@ -259,6 +265,11 @@ const readPackageSummary = (workingDir: string) => {
 
 const describeRuntime = (runtime: NonNullable<GlobalRegistryState["runtime"]>) =>
   `${runtime.url} (pid ${runtime.pid}, storage ${runtime.storagePath})`;
+
+const getProjectRegistryAddress = (state: ConsumerRegistryState) =>
+  Object.values(state.packages)
+    .map((entry) => entry.registryUrl)
+    .find((registryUrl) => !!registryUrl);
 
 const getTrackedConsumerProjects = (state: GlobalRegistryState) => {
   const projects = new Map<string, string[]>();

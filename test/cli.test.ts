@@ -151,4 +151,93 @@ describe('nalc CLI', () => {
       'Current project state\n- nalc: managing this project',
     );
   });
+
+  it('routes the update alias to the consumer updater', async () => {
+    const updateRegistryPackages = vi.fn().mockResolvedValue(undefined);
+
+    vi.doMock('../src/console', () => ({
+      makeConsoleColored: vi.fn(),
+      disabledConsoleOutput: vi.fn(),
+    }));
+    vi.doMock('../src/rc', () => ({
+      readRcConfig: () => ({}),
+    }));
+    vi.doMock('../src/registry/runtime', () => ({
+      ensureRegistryRuntime: vi.fn(),
+      stopRegistryRuntime: vi.fn(),
+    }));
+    vi.doMock('../src/registry/state', () => ({
+      describeNalcState: vi.fn(),
+      destroyNalcStore: vi.fn(),
+    }));
+    vi.doMock('../src/registry/consumer', () => ({
+      addRegistryPackages: vi.fn(),
+      passRegistryConsumer: vi.fn(),
+      pushRegistryPackages: vi.fn(),
+      removeRegistryPackages: vi.fn(),
+      updateRegistryPackages,
+    }));
+
+    process.argv = ['node', 'nalc', 'up'];
+
+    await import('../src/nalc');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(updateRegistryPackages).toHaveBeenCalledWith([], {
+      workingDir: process.cwd(),
+    });
+  });
+
+  it('routes push --all to publish once and then refresh all tracked consumers', async () => {
+    const publishPackage = vi.fn().mockResolvedValue({
+      sourcePath: '/repo/demo',
+      baseVersion: '1.0.0',
+      localVersion: '1.0.0-nalc.20260416.deadbeef',
+      distTag: 'nalc',
+      publishedAt: '2026-04-16T12:00:00.000Z',
+      buildId: 'deadbeef',
+      contentHash: 'deadbeef',
+    });
+    const pushRegistryPackages = vi.fn().mockResolvedValue(undefined);
+
+    vi.doMock('../src/console', () => ({
+      makeConsoleColored: vi.fn(),
+      disabledConsoleOutput: vi.fn(),
+    }));
+    vi.doMock('../src/rc', () => ({
+      readRcConfig: () => ({}),
+    }));
+    vi.doMock('../src/publish', () => ({
+      publishPackage,
+    }));
+    vi.doMock('../src/registry/runtime', () => ({
+      ensureRegistryRuntime: vi.fn(),
+      stopRegistryRuntime: vi.fn(),
+    }));
+    vi.doMock('../src/registry/state', () => ({
+      describeNalcState: vi.fn(),
+      destroyNalcStore: vi.fn(),
+    }));
+    vi.doMock('../src/registry/consumer', () => ({
+      addRegistryPackages: vi.fn(),
+      passRegistryConsumer: vi.fn(),
+      pushRegistryPackages,
+      removeRegistryPackages: vi.fn(),
+      updateRegistryPackages: vi.fn(),
+    }));
+
+    process.argv = ['node', 'nalc', 'push', '--all'];
+
+    await import('../src/nalc');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(publishPackage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workingDir: process.cwd(),
+        mode: 'registry',
+        push: false,
+      }),
+    );
+    expect(pushRegistryPackages).toHaveBeenCalledWith([]);
+  });
 });

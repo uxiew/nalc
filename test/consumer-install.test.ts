@@ -118,7 +118,12 @@ vi.mock('../src/pm', async () => {
   };
 });
 
-import { addRegistryPackages, passRegistryConsumer } from '../src/registry/consumer';
+import {
+  addRegistryPackages,
+  passRegistryConsumer,
+  pushRegistryPackages,
+  updateRegistryPackages,
+} from '../src/registry/consumer';
 import {
   readConsumerRegistryState,
   readGlobalRegistryState,
@@ -399,5 +404,239 @@ describe('Registry consumer installs', () => {
 
     const tsconfigStat = fs.statSync(join(consumerDir, 'tsconfig.json'));
     ok(tsconfigStat.mtimeMs > staleTimestamp.getTime());
+  });
+
+  it('updates all tracked packages in the current project when no package name is provided', async () => {
+    fs.writeJSONSync(
+      join(consumerDir, 'package.json'),
+      {
+        name: 'consumer-app',
+        version: '1.0.0',
+        private: true,
+        dependencies: {
+          '@cmshiki/editor': '0.2.0-nalc.20260327.b904ac54',
+          '@cmshiki/shiki': '0.2.0-nalc.20260327.f82cd2ef',
+          '@cmshiki/utils': '0.2.0-nalc.20260327.f353dc70',
+        },
+      },
+      { spaces: 2 },
+    );
+
+    writeConsumerRegistryState(consumerDir, {
+      version: 1,
+      packageManager: 'pnpm',
+      packages: {
+        '@cmshiki/editor': {
+          dependencyType: 'dependencies',
+          originalSpec: '^0.2.0',
+          localSpec: '0.2.0-nalc.20260327.b904ac54',
+          manifestSpec: '0.2.0-nalc.20260327.b904ac54',
+          sourcePath: '/repo/editor',
+          registryUrl,
+          installedAt: '2026-03-27T12:00:00.000Z',
+        },
+        '@cmshiki/shiki': {
+          dependencyType: 'dependencies',
+          originalSpec: '^0.2.0',
+          localSpec: '0.2.0-nalc.20260327.f82cd2ef',
+          manifestSpec: '0.2.0-nalc.20260327.f82cd2ef',
+          sourcePath: '/repo/shiki',
+          registryUrl,
+          installedAt: '2026-03-27T12:00:00.000Z',
+        },
+        '@cmshiki/utils': {
+          dependencyType: 'dependencies',
+          originalSpec: '^0.2.0',
+          localSpec: '0.2.0-nalc.20260327.f353dc70',
+          manifestSpec: '0.2.0-nalc.20260327.f353dc70',
+          sourcePath: '/repo/utils',
+          registryUrl,
+          installedAt: '2026-03-27T12:00:00.000Z',
+        },
+      },
+    });
+
+    writeGlobalRegistryState({
+      version: 1,
+      runtime: {
+        pid: 123,
+        port: 4876,
+        url: registryUrl,
+        configPath: '/tmp/verdaccio.yaml',
+        storagePath: '/tmp/storage',
+        startedAt: '2026-03-27T12:00:00.000Z',
+      },
+      packages: {
+        '@cmshiki/utils': {
+          sourcePath: '/repo/utils',
+          baseVersion: '0.2.0',
+          localVersion: '0.2.0-nalc.20260416.11111111',
+          distTag: 'nalc',
+          publishedAt: '2026-04-16T12:00:00.000Z',
+          buildId: '11111111',
+          contentHash: 'utils-next',
+        },
+        '@cmshiki/shiki': {
+          sourcePath: '/repo/shiki',
+          baseVersion: '0.2.0',
+          localVersion: '0.2.0-nalc.20260416.22222222',
+          distTag: 'nalc',
+          publishedAt: '2026-04-16T12:00:00.000Z',
+          buildId: '22222222',
+          contentHash: 'shiki-next',
+        },
+        '@cmshiki/editor': {
+          sourcePath: '/repo/editor',
+          baseVersion: '0.2.0',
+          localVersion: '0.2.0-nalc.20260416.33333333',
+          distTag: 'nalc',
+          publishedAt: '2026-04-16T12:00:00.000Z',
+          buildId: '33333333',
+          contentHash: 'editor-next',
+        },
+      },
+      consumers: {
+        '@cmshiki/utils': [consumerDir],
+        '@cmshiki/shiki': [consumerDir],
+        '@cmshiki/editor': [consumerDir],
+      },
+    });
+
+    const result = await updateRegistryPackages([], { workingDir: consumerDir });
+
+    expect(runRegistryInstallMock).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      workingDir: consumerDir,
+      updated: true,
+      packageNames: ['@cmshiki/editor', '@cmshiki/shiki', '@cmshiki/utils'],
+      registryUrl,
+    });
+
+    const manifest = fs.readJSONSync(join(consumerDir, 'package.json')) as any;
+    strictEqual(
+      manifest.dependencies['@cmshiki/editor'],
+      '0.2.0-nalc.20260416.33333333',
+    );
+    strictEqual(
+      manifest.dependencies['@cmshiki/shiki'],
+      '0.2.0-nalc.20260416.22222222',
+    );
+    strictEqual(
+      manifest.dependencies['@cmshiki/utils'],
+      '0.2.0-nalc.20260416.11111111',
+    );
+  });
+
+  it('pushes all tracked consumer packages with a single install per consumer', async () => {
+    fs.writeJSONSync(
+      join(consumerDir, 'package.json'),
+      {
+        name: 'consumer-app',
+        version: '1.0.0',
+        private: true,
+        dependencies: {
+          '@cmshiki/editor': '0.2.0-nalc.20260327.b904ac54',
+          '@cmshiki/shiki': '0.2.0-nalc.20260327.f82cd2ef',
+          '@cmshiki/utils': '0.2.0-nalc.20260327.f353dc70',
+        },
+      },
+      { spaces: 2 },
+    );
+
+    writeConsumerRegistryState(consumerDir, {
+      version: 1,
+      packageManager: 'pnpm',
+      packages: {
+        '@cmshiki/editor': {
+          dependencyType: 'dependencies',
+          originalSpec: '^0.2.0',
+          localSpec: '0.2.0-nalc.20260327.b904ac54',
+          manifestSpec: '0.2.0-nalc.20260327.b904ac54',
+          sourcePath: '/repo/editor',
+          registryUrl,
+          installedAt: '2026-03-27T12:00:00.000Z',
+        },
+        '@cmshiki/shiki': {
+          dependencyType: 'dependencies',
+          originalSpec: '^0.2.0',
+          localSpec: '0.2.0-nalc.20260327.f82cd2ef',
+          manifestSpec: '0.2.0-nalc.20260327.f82cd2ef',
+          sourcePath: '/repo/shiki',
+          registryUrl,
+          installedAt: '2026-03-27T12:00:00.000Z',
+        },
+        '@cmshiki/utils': {
+          dependencyType: 'dependencies',
+          originalSpec: '^0.2.0',
+          localSpec: '0.2.0-nalc.20260327.f353dc70',
+          manifestSpec: '0.2.0-nalc.20260327.f353dc70',
+          sourcePath: '/repo/utils',
+          registryUrl,
+          installedAt: '2026-03-27T12:00:00.000Z',
+        },
+      },
+    });
+
+    writeGlobalRegistryState({
+      version: 1,
+      runtime: {
+        pid: 123,
+        port: 4876,
+        url: registryUrl,
+        configPath: '/tmp/verdaccio.yaml',
+        storagePath: '/tmp/storage',
+        startedAt: '2026-03-27T12:00:00.000Z',
+      },
+      packages: {
+        '@cmshiki/utils': {
+          sourcePath: '/repo/utils',
+          baseVersion: '0.2.0',
+          localVersion: '0.2.0-nalc.20260416.11111111',
+          distTag: 'nalc',
+          publishedAt: '2026-04-16T12:00:00.000Z',
+          buildId: '11111111',
+          contentHash: 'utils-next',
+        },
+        '@cmshiki/shiki': {
+          sourcePath: '/repo/shiki',
+          baseVersion: '0.2.0',
+          localVersion: '0.2.0-nalc.20260416.22222222',
+          distTag: 'nalc',
+          publishedAt: '2026-04-16T12:00:00.000Z',
+          buildId: '22222222',
+          contentHash: 'shiki-next',
+        },
+        '@cmshiki/editor': {
+          sourcePath: '/repo/editor',
+          baseVersion: '0.2.0',
+          localVersion: '0.2.0-nalc.20260416.33333333',
+          distTag: 'nalc',
+          publishedAt: '2026-04-16T12:00:00.000Z',
+          buildId: '33333333',
+          contentHash: 'editor-next',
+        },
+      },
+      consumers: {
+        '@cmshiki/utils': [consumerDir],
+        '@cmshiki/shiki': [consumerDir],
+        '@cmshiki/editor': [consumerDir],
+      },
+    });
+
+    const result = await pushRegistryPackages([]);
+
+    expect(runRegistryInstallMock).toHaveBeenCalledTimes(1);
+    expect(result.packageNames).toEqual([
+      '@cmshiki/editor',
+      '@cmshiki/shiki',
+      '@cmshiki/utils',
+    ]);
+    expect(result.consumers).toHaveLength(1);
+    expect(result.consumers[0]).toMatchObject({
+      workingDir: consumerDir,
+      packageNames: ['@cmshiki/editor', '@cmshiki/shiki', '@cmshiki/utils'],
+      registryUrl,
+      updated: true,
+    });
   });
 });

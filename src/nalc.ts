@@ -180,6 +180,11 @@ yargs(process.argv.slice(2))
     describe: "Publish and push the latest version to tracked consumers",
     builder: (y) =>
       y
+        .option("all", {
+          describe: "After publishing, refresh all tracked consumer packages",
+          type: "boolean",
+          default: false,
+        })
         .option("scripts", {
           describe: "Run lifecycle scripts",
           type: "boolean",
@@ -206,7 +211,12 @@ yargs(process.argv.slice(2))
         })
         .default(rcArgs),
     handler: async (argv) => {
-      await publishPackage(getPublishOptions(argv, { push: true }));
+      const published = await publishPackage(
+        getPublishOptions(argv, { push: !argv.all }),
+      );
+      if (argv.all && published) {
+        await pushRegistryPackages([]);
+      }
     },
   })
   .command({
@@ -230,6 +240,7 @@ yargs(process.argv.slice(2))
   })
   .command({
     command: "update [packageNames...]",
+    aliases: ["up"],
     describe: "Update tracked local packages in the current project",
     builder: (y) => y.default(rcArgs).help(true),
     handler: async (argv: any) => {

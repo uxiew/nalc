@@ -179,6 +179,7 @@ describe("Registry mode helpers", () => {
     ok(report.includes("Current project state"));
     ok(report.includes("- package: demo-app@1.0.0"));
     ok(report.includes("- nalc: managing this project"));
+    ok(report.includes("- registry address: http://127.0.0.1:4873"));
     ok(report.includes("- tracked packages: 1"));
     ok(report.includes("demo -> 1.0.0-nalc.20260323.deadbeef [dependencies]"));
     ok(!report.includes("System nalc state"));
@@ -221,6 +222,7 @@ describe("Registry mode helpers", () => {
       ),
     );
     ok(report.includes("System nalc state"));
+    ok(report.includes("- registry address: http://127.0.0.1:4873"));
     ok(report.includes("- published packages: 1"));
     ok(report.includes("demo -> 1.0.0-nalc.20260323.deadbeef"));
     ok(report.includes(`- tracked consumer projects: 1`));
