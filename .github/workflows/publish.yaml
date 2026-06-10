@@ -60,3 +60,29 @@ jobs:
       - name: Skip publish (missing NPM_TOKEN)
         if: ${{ env.NPM_TOKEN == '' }}
         run: echo "NPM_TOKEN is empty, skip npm publish."
+
+  create-github-release:
+    name: Create GitHub Release
+    needs:
+      - verify
+      - publish-npm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPOSITORY: ${{ github.repository }}
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          if gh release view "$TAG_NAME" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG_NAME" \
+              --repo "$REPOSITORY" \
+              --title "$TAG_NAME" \
+              --latest
+          else
+            gh release create "$TAG_NAME" \
+              --repo "$REPOSITORY" \
+              --title "$TAG_NAME" \
+              --generate-notes \
+              --latest
+          fi

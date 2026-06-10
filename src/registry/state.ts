@@ -5,7 +5,6 @@ import {
   getConsumerRegistryStateDir,
   getConsumerRegistryStatePath,
   getGlobalRegistryStatePath,
-  getLegacyConsumerRegistryStatePath,
   getRegistryHomeDir,
 } from "./constants";
 import type { ConsumerRegistryState, GlobalRegistryState } from "./types";
@@ -91,7 +90,6 @@ export const readConsumerRegistryState = (
 ): ConsumerRegistryState => {
   return (
     readConsumerRegistryStateFile(getConsumerRegistryStatePath(workingDir)) ||
-    readConsumerRegistryStateFile(getLegacyConsumerRegistryStatePath(workingDir)) ||
     createEmptyConsumerState()
   );
 };
@@ -106,7 +104,6 @@ export const writeConsumerRegistryState = (
   const filePath = getConsumerRegistryStatePath(workingDir);
   fs.ensureDirSync(dirname(filePath));
   fs.writeJSONSync(filePath, state, { spaces: 2 });
-  removeLegacyConsumerRegistryState(workingDir);
 };
 
 /**
@@ -115,7 +112,6 @@ export const writeConsumerRegistryState = (
 export const removeConsumerRegistryState = (workingDir: string) => {
   fs.removeSync(getConsumerRegistryStatePath(workingDir));
   removeDirIfEmpty(getConsumerRegistryStateDir(workingDir));
-  removeLegacyConsumerRegistryState(workingDir);
 };
 
 /**
@@ -132,14 +128,11 @@ export const describeNalcState = (workingDir: string) => {
   const packageSummary = readPackageSummary(workingDir);
   const consumerState = readConsumerRegistryState(workingDir);
   const systemStatePath = getConsumerRegistryStatePath(workingDir);
-  const legacyStatePath = getLegacyConsumerRegistryStatePath(workingDir);
   const hasSystemState = fs.existsSync(systemStatePath);
-  const hasLegacyState = fs.existsSync(legacyStatePath);
   const trackedPackages = Object.entries(consumerState.packages).sort(
     ([left], [right]) => left.localeCompare(right),
   );
-  const isManagedProject =
-    hasSystemState || hasLegacyState || trackedPackages.length > 0;
+  const isManagedProject = hasSystemState || trackedPackages.length > 0;
   const lines: string[] = [];
 
   if (isManagedProject || packageSummary) {
@@ -152,14 +145,14 @@ export const describeNalcState = (workingDir: string) => {
     }
 
     if (isManagedProject) {
-      lines.push("- nalc: managing this project");
+      lines.push("- nalc: working!");
       lines.push(`- state file: ${systemStatePath}`);
-      if (hasLegacyState && !hasSystemState) {
-        lines.push(`- legacy state file detected: ${legacyStatePath}`);
-      }
       if (consumerState.packageManager) {
         lines.push(`- package manager: ${consumerState.packageManager}`);
       }
+      lines.push(
+        `- registry address: ${getProjectRegistryAddress(consumerState) || "not recorded"}`,
+      );
       lines.push(`- tracked packages: ${trackedPackages.length}`);
       trackedPackages.forEach(([packageName, entry]) => {
         lines.push(
@@ -169,8 +162,7 @@ export const describeNalcState = (workingDir: string) => {
       return lines.join("\n");
     }
 
-    lines.push("- nalc: not managing this project");
-    lines.push(`- expected state file: ${systemStatePath}`);
+    lines.push("- nalc: no working!");
     lines.push("");
   } else {
     lines.push(
@@ -223,14 +215,6 @@ const readConsumerRegistryStateFile = (filePath: string) => {
   }
 };
 
-const removeLegacyConsumerRegistryState = (workingDir: string) => {
-  const filePath = getLegacyConsumerRegistryStatePath(workingDir);
-  fs.removeSync(filePath);
-
-  const stateDir = join(workingDir, VALUES.nalcStateFolder);
-  removeDirIfEmpty(stateDir);
-};
-
 const removeDirIfEmpty = (dirPath: string) => {
   if (fs.existsSync(dirPath) && fs.readdirSync(dirPath).length === 0) {
     fs.removeSync(dirPath);
@@ -257,8 +241,14 @@ const readPackageSummary = (workingDir: string) => {
   }
 };
 
-const describeRuntime = (runtime: NonNullable<GlobalRegistryState["runtime"]>) =>
-  `${runtime.url} (pid ${runtime.pid}, storage ${runtime.storagePath})`;
+const describeRuntime = (
+  runtime: NonNullable<GlobalRegistryState["runtime"]>,
+) => `${runtime.url} (pid ${runtime.pid}, storage ${runtime.storagePath})`;
+
+const getProjectRegistryAddress = (state: ConsumerRegistryState) =>
+  Object.values(state.packages)
+    .map((entry) => entry.registryUrl)
+    .find((registryUrl) => !!registryUrl);
 
 const getTrackedConsumerProjects = (state: GlobalRegistryState) => {
   const projects = new Map<string, string[]>();

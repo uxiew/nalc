@@ -21,12 +21,6 @@ export const getConsumerRegistryProjectsDir = () =>
   join(getStoreMainDir(), "projects");
 
 /**
- * Legacy in-project consumer state file.
- */
-export const getLegacyConsumerRegistryStatePath = (workingDir: string) =>
-  join(workingDir, VALUES.nalcStateFolder, "state.json");
-
-/**
  * Consumer state directory for registry mode.
  */
 export const getConsumerRegistryStateDir = (workingDir: string) => {

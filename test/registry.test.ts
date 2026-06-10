@@ -6,7 +6,6 @@ import { nalcGlobal } from "../src/constant";
 import {
   getConsumerRegistryStatePath,
   getGlobalRegistryStatePath,
-  getLegacyConsumerRegistryStatePath,
   getRegistryHomeDir,
 } from "../src/registry/constants";
 import {
@@ -89,7 +88,7 @@ describe("Registry mode helpers", () => {
   it("persists consumer registry state", () => {
     writeConsumerRegistryState(consumerDir, {
       version: 1,
-      packageManager: 'pnpm',
+      packageManager: "pnpm",
       packages: {
         demo: {
           dependencyType: "dependencies",
@@ -105,7 +104,7 @@ describe("Registry mode helpers", () => {
 
     deepEqual(readConsumerRegistryState(consumerDir), {
       version: 1,
-      packageManager: 'pnpm',
+      packageManager: "pnpm",
       packages: {
         demo: {
           dependencyType: "dependencies",
@@ -120,36 +119,6 @@ describe("Registry mode helpers", () => {
     });
     ok(fs.existsSync(getConsumerRegistryStatePath(consumerDir)));
     ok(!getConsumerRegistryStatePath(consumerDir).startsWith(consumerDir));
-  });
-
-  it("reads legacy in-project consumer state and migrates writes to the system store", () => {
-    const legacyPath = getLegacyConsumerRegistryStatePath(consumerDir);
-    fs.ensureDirSync(join(consumerDir, ".nalc"));
-    fs.writeJSONSync(legacyPath, {
-      version: 1,
-      packageManager: "pnpm",
-      packages: {
-        demo: {
-          dependencyType: "dependencies",
-          originalSpec: "^1.0.0",
-          localSpec: "1.0.0-nalc.20260323.deadbeef",
-          manifestSpec: "1.0.0-nalc.20260323.deadbeef",
-          sourcePath: "/tmp/demo",
-          registryUrl: "http://127.0.0.1:4873",
-          installedAt: "2026-03-23T08:00:00.000Z",
-        },
-      },
-    });
-
-    const state = readConsumerRegistryState(consumerDir);
-    strictEqual(state.packageManager, "pnpm");
-    strictEqual(state.packages.demo.localSpec, "1.0.0-nalc.20260323.deadbeef");
-
-    writeConsumerRegistryState(consumerDir, state);
-
-    ok(fs.existsSync(getConsumerRegistryStatePath(consumerDir)));
-    ok(!fs.existsSync(legacyPath));
-    ok(!fs.existsSync(join(consumerDir, ".nalc")));
   });
 
   it("prefers current project details when the project is managed by nalc", () => {
@@ -178,7 +147,8 @@ describe("Registry mode helpers", () => {
 
     ok(report.includes("Current project state"));
     ok(report.includes("- package: demo-app@1.0.0"));
-    ok(report.includes("- nalc: managing this project"));
+    ok(report.includes("- nalc: working!"));
+    ok(report.includes("- registry address: http://127.0.0.1:4873"));
     ok(report.includes("- tracked packages: 1"));
     ok(report.includes("demo -> 1.0.0-nalc.20260323.deadbeef [dependencies]"));
     ok(!report.includes("System nalc state"));

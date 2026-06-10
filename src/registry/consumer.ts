@@ -29,6 +29,18 @@ export interface RegistryConsumerOptions {
   all?: boolean;
 }
 
+export interface RegistryUpdateResult {
+  workingDir: string;
+  packageNames: string[];
+  registryUrl?: string;
+  updated: boolean;
+}
+
+export interface RegistryPushResult {
+  packageNames: string[];
+  consumers: RegistryUpdateResult[];
+}
+
 const LOCAL_REGISTRY_VERSION_RE =
   /^(?:[~^])?.*-(?:nalc)\.\d{8}(?:\d{6})?\.[0-9a-f]{8}$/;
 
@@ -95,22 +107,40 @@ export const addRegistryPackages = async (
 export const updateRegistryPackages = async (
   packages: string[],
   options: RegistryConsumerOptions,
-) => {
+): Promise<RegistryUpdateResult> => {
   const consumerState = readConsumerRegistryState(options.workingDir);
   consumerState.packageManager = getPm(
     options.workingDir,
     consumerState.packageManager,
   );
-  const packageNames = packages.length
-    ? packages
-    : Object.keys(consumerState.packages);
+  const packageNames = Array.from(
+    new Set(
+      (packages.length ? packages : Object.keys(consumerState.packages)).sort(
+        (left, right) => left.localeCompare(right),
+      ),
+    ),
+  );
   if (!packageNames.length) {
-    return;
+    console.log(
+      `[nalc:update] ${options.workingDir} has no tracked packages to update.`,
+    );
+    return {
+      workingDir: options.workingDir,
+      packageNames: [],
+      updated: false,
+    };
   }
 
   const pkg = readPackageManifest(options.workingDir);
   if (!pkg) {
-    return;
+    console.log(
+      `[nalc:update] ${options.workingDir} is not a package project, skipping.`,
+    );
+    return {
+      workingDir: options.workingDir,
+      packageNames,
+      updated: false,
+    };
   }
 
   const globalState = readGlobalRegistryState();
@@ -132,6 +162,15 @@ export const updateRegistryPackages = async (
     );
   });
 
+  console.log(`[nalc:update] project: ${options.workingDir}`);
+  console.log(`[nalc:update] registry: ${runtime.url}`);
+  packageNames.forEach((packageName) => {
+    const consumerEntry = consumerState.packages[packageName];
+    console.log(
+      `[nalc:update]   - ${packageName} -> ${consumerEntry.localSpec}`,
+    );
+  });
+
   installTrackedRegistryState(
     options.workingDir,
     pkg,
@@ -139,6 +178,15 @@ export const updateRegistryPackages = async (
     runtime.url,
   );
   writeConsumerRegistryState(options.workingDir, consumerState);
+  console.log(
+    `[nalc:update] updated ${packageNames.length} package(s) in ${options.workingDir}`,
+  );
+  return {
+    workingDir: options.workingDir,
+    packageNames,
+    registryUrl: runtime.url,
+    updated: true,
+  };
 };
 
 /**
@@ -223,15 +271,68 @@ export const passRegistryConsumer = async (workingDir: string) => {
  */
 export const pushRegistryPackages = async (packages: string[]) => {
   const globalState = readGlobalRegistryState();
-  const packageNames = packages.length
-    ? packages
-    : Object.keys(globalState.consumers);
-  for (const packageName of packageNames) {
-    const trackedConsumers = globalState.consumers[packageName] || [];
-    for (const workingDir of trackedConsumers) {
-      await updateRegistryPackages([packageName], { workingDir });
-    }
+  const packageNames = Array.from(
+    new Set(
+      (packages.length ? packages : Object.keys(globalState.consumers)).sort(
+        (left, right) => left.localeCompare(right),
+      ),
+    ),
+  );
+  if (!packageNames.length) {
+    console.log("[nalc:push] no tracked consumer packages to update.");
+    return {
+      packageNames: [],
+      consumers: [],
+    } satisfies RegistryPushResult;
   }
+
+  const consumerPackagesMap = new Map<string, string[]>();
+  packageNames.forEach((packageName) => {
+    const trackedConsumers = globalState.consumers[packageName] || [];
+    trackedConsumers.forEach((workingDir) => {
+      const trackedPackages = consumerPackagesMap.get(workingDir) || [];
+      if (!trackedPackages.includes(packageName)) {
+        trackedPackages.push(packageName);
+      }
+      consumerPackagesMap.set(workingDir, trackedPackages);
+    });
+  });
+
+  console.log(
+    `[nalc:push] target packages: ${packageNames.join(", ") || "(none)"}`,
+  );
+
+  const consumers = Array.from(consumerPackagesMap.entries()).sort(
+    ([left], [right]) => left.localeCompare(right),
+  );
+  if (!consumers.length) {
+    console.log("[nalc:push] no tracked consumers matched the selected packages.");
+    return {
+      packageNames,
+      consumers: [],
+    } satisfies RegistryPushResult;
+  }
+
+  const results: RegistryUpdateResult[] = [];
+  for (const [workingDir, trackedPackages] of consumers) {
+    const sortedTrackedPackages = trackedPackages.sort((left, right) =>
+      left.localeCompare(right),
+    );
+    console.log(
+      `[nalc:push] project: ${workingDir} <- ${sortedTrackedPackages.join(", ")}`,
+    );
+    results.push(
+      await updateRegistryPackages(sortedTrackedPackages, { workingDir }),
+    );
+  }
+
+  console.log(
+    `[nalc:push] updated ${results.length} consumer project(s).`,
+  );
+  return {
+    packageNames,
+    consumers: results,
+  } satisfies RegistryPushResult;
 };
 
 /**

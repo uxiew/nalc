@@ -191,9 +191,16 @@ Publish and immediately push the new local version into tracked consumers.
 ```bash
 nalc push
 nalc push --changed
+nalc push --all
 ```
 
-Compared with `publish`, `push` defaults to `--scripts=false` and always behaves as `--push`.
+Compared with `publish`, `push` defaults to `--scripts=false`.
+
+Behavior:
+
+- `nalc push`: publish the current package and push that package to its tracked consumers
+- `nalc push --all`: publish the current package first, then refresh every tracked package in every tracked consumer project
+- prints detailed consumer update output so you can see which projects and packages were refreshed
 
 ### `nalc add <package...>`
 
@@ -220,13 +227,16 @@ Update tracked consumer entries to the latest locally published versions.
 
 ```bash
 nalc update
+nalc up
 nalc update my-package
 ```
 
 Behavior:
 
+- when no package name is provided, updates all tracked packages in the current project
 - updates tracked packages to the latest published `localVersion`
 - keeps each entry's `dependencyType`
+- prints the target registry address and the exact packages being refreshed
 - refreshes the consumer install with the new exact local versions
 
 ### `nalc remove [package...]`
@@ -290,6 +300,7 @@ Behavior:
 - if the target directory is a nalc-managed project, prints that project's tracked package details first
 - if the target directory is a normal package project but not currently managed by nalc, prints that fact and then shows the system summary
 - if the target directory is not a package project, directly shows the nalc system summary
+- includes the active or recorded registry address in both project and system views when available
 - the system summary includes the nalc home dir, global state file, registry status, published packages, tracked consumers, and saved project state files
 
 ### `nalc ws [path]`
