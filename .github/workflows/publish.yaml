@@ -15,12 +15,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js + pnpm
         uses: uxiew/action-setup-node-pnpm@main
         with:
           node-version: "24"
           args: "--frozen-lockfile"
+
+      - name: Verify tag matches package.json version
+        run: |
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          echo "package.json version: $PKG_VERSION"
+          echo "Tag version: $TAG_VERSION"
+          if [ "$PKG_VERSION" != "$TAG_VERSION" ]; then
+            echo "❌ Version mismatch: package.json ($PKG_VERSION) != tag ($TAG_VERSION)"
+            exit 1
+          fi
+          echo "✅ Version check passed: $PKG_VERSION"
 
       - name: Build
         run: pnpm build
@@ -68,21 +82,101 @@ jobs:
       - publish-npm
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate Changelog
+        id: changelog
+        run: |
+          TAG_NAME="${GITHUB_REF_NAME}"
+          PREV_TAG=$(git tag --sort=-version:refname | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed -n '2p')
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+
+          echo "## 📦 ${PKG_NAME}@${PKG_VERSION}" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+
+          if [ -n "$PREV_TAG" ]; then
+            echo "### What's Changed" >> RELEASE_NOTES.md
+            echo "" >> RELEASE_NOTES.md
+
+            # Features
+            FEATURES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges | grep -E '^- feat' || true)
+            if [ -n "$FEATURES" ]; then
+              echo "#### ✨ Features" >> RELEASE_NOTES.md
+              echo "$FEATURES" >> RELEASE_NOTES.md
+              echo "" >> RELEASE_NOTES.md
+            fi
+
+            # Bug Fixes
+            FIXES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges | grep -E '^- fix' || true)
+            if [ -n "$FIXES" ]; then
+              echo "#### 🐛 Bug Fixes" >> RELEASE_NOTES.md
+              echo "$FIXES" >> RELEASE_NOTES.md
+              echo "" >> RELEASE_NOTES.md
+            fi
+
+            # Refactors
+            REFACTORS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges | grep -E '^- refactor' || true)
+            if [ -n "$REFACTORS" ]; then
+              echo "#### ♻️ Refactors" >> RELEASE_NOTES.md
+              echo "$REFACTORS" >> RELEASE_NOTES.md
+              echo "" >> RELEASE_NOTES.md
+            fi
+
+            # Docs
+            DOCS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges | grep -E '^- docs' || true)
+            if [ -n "$DOCS" ]; then
+              echo "#### 📚 Documentation" >> RELEASE_NOTES.md
+              echo "$DOCS" >> RELEASE_NOTES.md
+              echo "" >> RELEASE_NOTES.md
+            fi
+
+            # Tests
+            TESTS=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges | grep -E '^- test' || true)
+            if [ -n "$TESTS" ]; then
+              echo "#### 🧪 Tests" >> RELEASE_NOTES.md
+              echo "$TESTS" >> RELEASE_NOTES.md
+              echo "" >> RELEASE_NOTES.md
+            fi
+
+            # Chores (excluding release commits)
+            CHORES=$(git log "${PREV_TAG}..HEAD" --pretty=format:"- %s (%h)" --no-merges | grep -E '^- chore' | grep -v 'release' || true)
+            if [ -n "$CHORES" ]; then
+              echo "#### 🔧 Chores" >> RELEASE_NOTES.md
+              echo "$CHORES" >> RELEASE_NOTES.md
+              echo "" >> RELEASE_NOTES.md
+            fi
+
+            echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${PREV_TAG}...${TAG_NAME}" >> RELEASE_NOTES.md
+          else
+            echo "Initial release 🎉" >> RELEASE_NOTES.md
+          fi
+
+          cat RELEASE_NOTES.md
+
       - name: Create or update GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPOSITORY: ${{ github.repository }}
           TAG_NAME: ${{ github.ref_name }}
         run: |
-          if gh release view "$TAG_NAME" --repo "$REPOSITORY" >/dev/null 2>&1; then
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          TITLE="${PKG_NAME}@${PKG_VERSION}"
+
+          if gh release view "$TAG_NAME" --repo "$REPOSITORY" > /dev/null 2>&1; then
             gh release edit "$TAG_NAME" \
               --repo "$REPOSITORY" \
-              --title "$TAG_NAME" \
+              --title "$TITLE" \
+              --notes-file RELEASE_NOTES.md \
               --latest
           else
             gh release create "$TAG_NAME" \
               --repo "$REPOSITORY" \
-              --title "$TAG_NAME" \
-              --generate-notes \
+              --title "$TITLE" \
+              --notes-file RELEASE_NOTES.md \
               --latest
           fi
